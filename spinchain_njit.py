@@ -12,7 +12,7 @@ from qutip import *
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from numba import njit
+from numba import jit,njit
 import time
 # Grab parameters from params file.
 from params import *
@@ -35,7 +35,7 @@ plt.rcParams.update(params)
 # assignment here, and uses every core it can get its hands on. To fix that I'd have to go digging into the
 # multiprocessing library files, which doesn't seem best pracrice. Just worth bearing in mind that MC is getting
 # access to a lot more resources!
-threads = 8
+threads = 20
 os.environ['NUMEXPR_MAX_THREADS'] = '{}'.format(threads)
 os.environ['NUMEXPR_NUM_THREADS'] = '{}'.format(threads)
 os.environ['OMP_NUM_THREADS'] = '{}'.format(threads)
@@ -112,12 +112,10 @@ def integrate_setup(N, fock_N, kappa, g, beta, gamma, deltas):
 
 def qutip_solver(H, psi0, tlist, c_op_list, sz_list, solver, ntraj=1000):
     # evolve and calculate expectation values
-    print(Options())
-    options=Options(num_cpus=4)
     if solver == "me":
-        result = mesolve(H, psi0, tlist, c_op_list, sz_list, progress_bar=True,options=options)
+        result = mesolve(H, psi0, tlist, c_op_list, sz_list, progress_bar=True)
     elif solver == "mc":
-        result = mcsolve(H, psi0, tlist, c_op_list, sz_list, ntraj, progress_bar=True,options=options)
+        result = mcsolve(H, psi0, tlist, c_op_list, sz_list, ntraj, progress_bar=True)
 
     return result.expect
 
@@ -223,50 +221,131 @@ def alt_overlap(psi_list):
 """The orthogonalisation procedure the overlaps are used in"""
 
 
-def orthogonalise(psi_list, U, zeroobj, rank):
-    g_list = []
-    U = U.T
-    if rank > len(psi_list):
-        rank = len(psi_list)
-    norm = 0
-    for i in range(rank):
-        g = zeroobj
-        for j in range(len(psi_list)):
-            # print(U[i,j])
-            # print(psi_list[j].dims)
-            g_unit = U[i, j] * psi_list[j]
-            g += g_unit
-        # norm+=g.norm()**2
-        g_list.append(g)
-    # g_list=[g/np.sqrt(norm) for g in g_list]
-    return g_list
+
 
 
 """Performs a single step in the low-rank approximation. Returns a list of arrays which are the set of psis evolved by one step"""
 
 
+# def one_step(psis, U_ops, zeropsi, rank):
+#     new_psis = []
+#     t_start=time.time()
+#     for psi in psis:
+#         for U in U_ops:
+#             newpsi = U * psi
+#             new_psis.append(newpsi)
+#     print("serial computation takes {} seconds".format(time.time() - t_start))
+#     t_start=time.time()
+#     if len(new_psis) > rank:
+#         # mat = overlap(new_psis)
+#         # This is a bit awkward, needing to convert from a list of arrays to a 2d np array in this way, but it's the
+#         # first working solution I found.
+#         psi_array = np.array([psi.full() for psi in new_psis])
+#         # print(psi_array.shape)
+#         mat = alt_overlap(psi_array.squeeze())
+#         w, v = np.linalg.eigh(mat)
+#         v = v[:, ::-1]
+#         new_psis = orthogonalise(new_psis, v, zeropsi, rank)
+#     print("orthogonalisation takes {} seconds".format(time.time() - t_start))
+#     return new_psis
+
+
+
+# @njit
+# def one_step(psis, U_ops, zeropsi, rank):
+#     def orthogonalise(psi_list, U, zeroobj, rank):
+#         g_list = []
+#         U = U.T
+#         if rank > len(psi_list):
+#             rank = len(psi_list)
+#         norm = 0
+#         for i in range(rank):
+#             g = zeroobj
+#             for j in range(len(psi_list)):
+#                 # print(U[i,j])
+#                 # print(psi_list[j].dims)
+#                 g_unit = U[i, j] * psi_list[j]
+#                 g += g_unit
+#             # norm+=g.norm()**2
+#             g_list.append(g)
+#         # g_list=[g/np.sqrt(norm) for g in g_list]
+#         return g_list
+#     new_psis = []
+#     for psi in psis:
+#         for U in U_ops:
+#             newpsi = U * psi
+#             new_psis.append(newpsi)
+#
+#     print(type(new_psis))
+#     # if len(new_psis) > rank:
+#     #     # mat = overlap(new_psis)
+#     #     # This is a bit awkward, needing to convert from a list of arrays to a 2d np array in this way, but it's the
+#     #     # first working solution I found.
+#     #     psi_array = new_psis
+#     #     # print(psi_array.shape)
+#     #     mat = alt_overlap(psi_array.squeeze())
+#     #     w, v = np.linalg.eigh(mat)
+#     #     v = v[:, ::-1]
+#     #     new_psis = orthogonalise(new_psis, v, zeropsi, rank)
+#     return new_psis
+
+# @njit
 def one_step(psis, U_ops, zeropsi, rank):
-    new_psis = []
-    t_start=time.time()
+    def orthogonalise(psi_list, U, zeroobj, rank,k):
+        # g_list = []
+        g_list=[psi_list[0]]
+        U = U.T
+        if rank > k:
+            rank = k
+        norm = 0
+        for i in range(rank):
+            g = zeroobj
+            # print('g shape')
+            # print(g.shape)
+            # print(g.shape)
+            for j in range(k):
+                # print(U[i,j])
+                # print(psi_list[:,j].shape)
+                g_unit = U[i, j] * psi_list[j]
+                # print('g unit shape')
+                # print(g_unit.shape)
+                g += g_unit
+                # print(g.shape)
+            # norm+=g.norm()**2
+            g_list.append(g)
+        # g_list=[g/np.sqrt(norm) for g in g_list]
+        return g_list[1:]
+
+    new_psis=[psis[0]]
+    # print(zeropsi.shape)
+    # t_start=time.time()
+    # for psi in psis:
+    #     for U in U_ops:
+    #         # print('doing U_ops')
+    #         newpsi=np.column_stack((newpsi,U@psi))
     for psi in psis:
         for U in U_ops:
-            newpsi = U * psi
-            new_psis.append(newpsi)
-    # print("serial computation takes {} seconds".format(time.time() - t_start))
-    t_start=time.time()
-    if len(new_psis) > rank:
-        # mat = overlap(new_psis)
-        # This is a bit awkward, needing to convert from a list of arrays to a 2d np array in this way, but it's the
-        # first working solution I found.
-        psi_array = np.array([psi.full() for psi in new_psis])
+            # print('doing U_ops')
+            new_psis.append(U@psi)
+
+
+    psi_list=new_psis[1:]
+    # print(psi_list.shape)
+    stack_size=len(psi_list)
+
+    if stack_size > rank:
+        psi_array=np.array(psi_list).T
         # print(psi_array.shape)
-        mat = alt_overlap(psi_array.squeeze())
+        # print(psi_list.shape)
+        mat = psi_array.conj() @ psi_array.T
+        print(mat.shape)
         w, v = np.linalg.eigh(mat)
         v = v[:, ::-1]
-        new_psis = orthogonalise(new_psis, v, zeropsi, rank)
+        final_psis = orthogonalise(psi_list, v, zeropsi, rank,stack_size)
+    else:
+        final_psis=psi_list
     # print("orthogonalisation takes {} seconds".format(time.time() - t_start))
-    return new_psis
-
+    return final_psis
 
 """Calculates expectations from the set of low-rank psis."""
 
@@ -277,7 +356,7 @@ def expectations(psis, ops, normalise):
         expec = 0
         norm = 0
         for psi in psis:
-            expec += expect(op, psi)
+            expec += psi.T@op.full()@psi
             if normalise:
                 norm += psi.norm()**2
         if normalise:
@@ -329,7 +408,8 @@ def lowrank_sim(rank, run_lowrank):
         N, fock_N,init,g,beta,kappa,gamma,detune,shift,rank)
     if run_lowrank:
         loop_start = time.time()
-        psis = [psi0]
+        psis = [psi0.full().flatten()]
+
         s_rank = []
         psi_times = []
         time_psis = []
@@ -390,12 +470,12 @@ zero_list.append(fock_zero_ket)
 psi0 = tensor(psi_list)
 zeropsi = tensor(zero_list)
 # print(zeropsi)
-print(deltas)
-H, sz_list, sx_list, c_op_list = integrate_setup(N, fock_N, kappa, g, beta,gamma, deltas)
-U_ops = unitaries(H, c_op_list, deltat)
-end = time.time()
-print('operators built! Time taken %.3f seconds' % (end - start))
-psis = [psi0]
+# print(deltas)
+# H, sz_list, sx_list, c_op_list = integrate_setup(N, fock_N, kappa, g, beta,gamma, deltas)
+# U_ops = unitaries(H, c_op_list, deltat)
+# end = time.time()
+# print('operators built! Time taken %.3f seconds' % (end - start))
+# psis = [psi0]
 
 """Single run for simulations"""
 # exact_sim(run_exact)
@@ -404,82 +484,17 @@ psis = [psi0]
 
 
 # """batch runs"""
-# for fock_N in [10]:
-#     for N in [7]:
-#         # counter=0
-#         for kappa_var in [1e-1,1]:
-#             for gamma_var in [1e-1]:
-#                 for shift_var in [0]:
-#                     kappa = kappa_var * g
-#                     gamma = gamma_var * g
-#                     beta=kappa
-#                     # shift=1e-1*g
-#                     # shift = 2*gamma
-#                     shift=0
-#                     delta_column=[]
-#                     for n in range(N):
-#                         delta_row = []
-#                         for m in range(N):
-#                             if m == n:
-#                                 delta_row.append(detune * (m + 1))
-#                             else:
-#                                 delta_row.append(shift)
-#                         delta_column.append(delta_row)
-#                     deltas = np.array(delta_column)
-#                     print('now running for {}-sites, {:.2e}-kappa, {:.2e}-Gamma,{:.2e}-Lambd shift'.format(N, kappa_var, gamma_var,shift_var))
-#                     psi_list = []
-#                     zero_list = []
-#                     zero_ket = Qobj([[0], [0]])
-#                     fock_zero_list = []
-#                     for n in range(fock_N):
-#                         fock_zero_list.append([0])
-#                     fock_zero_ket = Qobj(fock_zero_list)
-#
-#                     start = time.time()
-#
-#                     for n in range(N):
-#                         psi_list.append((basis(2,1)+basis(2,0))/np.sqrt(2))
-#                         # psi_list.append(basis(2, 0))
-#                         zero_list.append(zero_ket)
-#                     psi_list.append(basis(fock_N, 0))
-#                     zero_list.append(fock_zero_ket)
-#                     psi0 = tensor(psi_list)
-#                     zeropsi = tensor(zero_list)
-#                     # print(zeropsi)
-#                     print(deltas)
-#                     H, sz_list, sx_list, c_op_list = integrate_setup(N, fock_N, kappa, g, beta, gamma, deltas)
-#                     U_ops = unitaries(H, c_op_list, deltat)
-#                     end = time.time()
-#                     print('operators built! Time taken %.3f seconds' % (end - start))
-#                     psis = [psi0]
-#                     # if fock_N==10:
-#                     # exact_sim(run_exact)
-#                     for ntraj in [101, 501,1001,5001]:
-#                         print('now running for {}-sites, {:.2e}-kappa, {:.2e}-Gamma,{:.2e}-Lambd shift'.format(N,
-#                                                                                                                kappa_var,
-#                                                                                                                gamma_var,
-#                                                                                                                shift_var))
-#                         print('now running monte-carlo {}-trajectories'.format(ntraj))
-#                         mc_sim(ntraj, run_mc)
-                    # for rank in [1]:
-                    #     print('now running for {}-sites, {:.2e}-kappa, {:.2e}-Gamma,{:.2e}-Lambd shift'.format(N, kappa_var,
-                    #                                                                                            gamma_var,
-                    #                                                                                            shift_var))
-                    #     print('now running low-rank at rank {}'.format(rank))
-                    #     lowrank_sim(rank, run_lowrank)
-
-for fock_N in [10]:
-    for N in [7]:
+for fock_N in [2]:
+    for N in [4]:
         # counter=0
-        for kappa_var in [1e-1,1]:
-            for gamma_var in [1e-1,1e-2,1e-3]:
+        for kappa_var in [1e-1]:
+            for gamma_var in [1e-2]:
                 for shift_var in [0]:
                     kappa = kappa_var * g
                     gamma = gamma_var * g
                     beta=kappa
                     # shift=1e-1*g
-                    # shift = 2*gamma
-                    shift=0
+                    shift = 2*gamma
                     delta_column=[]
                     for n in range(N):
                         delta_row = []
@@ -516,21 +531,34 @@ for fock_N in [10]:
                     end = time.time()
                     print('operators built! Time taken %.3f seconds' % (end - start))
                     psis = [psi0]
+                    U_ops_new = []
+                    for U in U_ops:
+                        U_ops_new.append(U.full())
+                        # print(type(U.full()))
+
+                    U_ops = U_ops_new
+                    # print(U_ops.shape)
+                    # print('length {}'.format(len(U_ops)))
+                    zeropsi=zeropsi.full().flatten()
+                    psis = [psi0.full().flatten()]
+                    print(type(psi0.full()))
                     # if fock_N==10:
                     # exact_sim(run_exact)
-                    # for ntraj in [101, 501,1001,5001]:
+                    # for ntraj in [500,1000,5000,10000]:
                     #     print('now running for {}-sites, {:.2e}-kappa, {:.2e}-Gamma,{:.2e}-Lambd shift'.format(N,
                     #                                                                                            kappa_var,
                     #                                                                                            gamma_var,
                     #                                                                                            shift_var))
                     #     print('now running monte-carlo {}-trajectories'.format(ntraj))
                     #     mc_sim(ntraj, run_mc)
-                    for rank in [32]:
+                    for rank in [2]:
                         print('now running for {}-sites, {:.2e}-kappa, {:.2e}-Gamma,{:.2e}-Lambd shift'.format(N, kappa_var,
                                                                                                                gamma_var,
                                                                                                                shift_var))
                         print('now running low-rank at rank {}'.format(rank))
                         lowrank_sim(rank, run_lowrank)
+
+
 
 """Old Plotting Code. The New Code saves these expectations for plotting in analysis.py"""
 # print(s_rank.size)

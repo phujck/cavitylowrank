@@ -7,19 +7,30 @@ import time
 from params import *
 import os
 params = {
-    'axes.labelsize': 30,
+    'axes.labelsize': 40,
     # 'legend.fontsize': 28,
-    'legend.fontsize': 23,
-    'xtick.labelsize': 18,
-    'ytick.labelsize': 18,
-    'figure.figsize': [2 * 3.375, 2 * 3.375],
+    'legend.fontsize': 25,
+    'xtick.labelsize': 25,
+    'ytick.labelsize': 25,
+    # 'figure.figsize': [2 * 3.375, 2 * 3.375],
     'text.usetex': True,
+    # 'figure.figsize': (12, 16),
     'figure.figsize': (20, 12),
     'lines.linewidth' : 3,
     'lines.markersize' : 15
 
 }
-
+# hop_t=1
+# hop_g=0.5*hop_t
+# L=7
+# k_vec_odd=np.linspace(1,2*L-1,L)
+# k_vec_even=np.linspace(2,2*L,L)
+# energy_1 =[2*hop_t*np.cos(np.pi*k/L)+hop_g for k in k_vec_even]
+# energy_2 =[2*hop_t*np.cos(np.pi*k/L)-hop_g for k in k_vec_odd]
+#
+# plt.plot(k_vec_even,energy_1,'-x')
+# plt.plot(k_vec_odd,energy_2,'-o')
+# plt.show()
 plt.rcParams.update(params)
 # for dephase in [1e-4,1e-3,0]:
 fig_params='{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.pdf'.format(
@@ -67,7 +78,7 @@ cmap = plt.get_cmap('jet_r')
 # ax1.legend()
 #
 # plt.show()
-#
+# #
 plt.subplot(211)
 for n in range(N-1):
     plt.plot(tlist, np.real(s_exact[n]), color='red')
@@ -175,87 +186,196 @@ plt.legend()
 plt.grid(True)
 # plt.xlim(0,95)
 plt.savefig('./Plots/montecarlovslowrankexample' + fig_params,bbox_inches='tight')
-plt.savefig('./Plots/cavityexample',bbox_inches='tight')
+plt.savefig('./Plots/cavityexamplenew.pdf',bbox_inches='tight')
 
 plt.tight_layout()
+
 plt.show()
 
 
 exact_times=[]
-plt.subplot(211)
-for kappa_var in [1e-1]:
-    for gamma_var in [1e-3,1e-2,1e-1]:
-        kappa=((kappa_var))*g
-        beta=kappa
-        gamma=((gamma_var))*g
-        factor=np.log10(gamma_var)
-        color = cmap((float(factor-1)**2 +0.4)/20)
-        outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
-            N, fock_N, init, g, beta, kappa, gamma, detune, shift)
-        outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
-            N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
-        outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
-            N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
-        expectations_exact = np.load(outfile_exact)
-        s_exact = expectations_exact['expectations']
-        exact_times.append(expectations_exact['runtime'])
-        print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
-
-        # s_exact=expectations_mc['expectations']
-
-        mc_times=[]
-        lr_times=[]
-        mc_eps=[]
-        lr_eps=[]
-        for ntraj in [500,1000,5000,10000]:
-            outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
-                N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
-            expectations_mc = np.load(outfile_mc)
-
-            s_mc = expectations_mc['expectations']
-            mc_times.append(expectations_mc['runtime'])
-            eps_z_mc=0
-            for n in range(N+1):
-                eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
-            mc_eps.append(np.sqrt(eps_z_mc))
-            # print(mc_eps)color = cmap((float(xx)-7)/45)
-        for rank in [1,2,4,8]:
-            outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
-                N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
-            expectations_lowrank = np.load(outfile_lowrank)
-            s_lowrank = expectations_lowrank['expectations']
-            lr_times.append(expectations_lowrank['runtime'])
-            eps_z_lr = 0
-            for n in range(N+1):
-                eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
-            lr_eps.append(np.sqrt(eps_z_lr))
-        # plt.xlabel('Runtime(s)')
-        plt.grid(True)
-        plt.ylabel('$\\mathcal{E}$')
-        # plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-        # plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-        plt.loglog(lr_times,lr_eps,color=color,marker="o",label='ERT $\\gamma=10^{-%d}g$' % factor)
-        plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}g$' % factor)
-        if gamma_var == 1e-3:
-            plt.plot(lr_times[0], lr_eps[0], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
-            plt.plot(mc_times[2], mc_eps[2], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
-        exact_time = np.mean(exact_times)
-    plt.vlines(exact_time, ymin=10 ** -3, ymax=10 ** 2, linestyles='dashed', colors='black')
-plt.ylim(10 ** -3, 10 ** 1)
-# plt.tick_params(axis='x', which='both',labelsize=0, length=0)
+# plt.subplot(211)
+# for kappa_var in [1e-1]:
+#     for gamma_var in [1e-3,1e-2,1e-1]:
+#         kappa=((kappa_var))*g
+#         beta=kappa
+#         gamma=((gamma_var))*g
+#         # shift=2*gamma
+#         factor=np.log10(gamma_var)
+#         color = cmap((float(factor-1)**2 +0.4)/20)
+#         outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift)
+#         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#         expectations_exact = np.load(outfile_exact)
+#         s_exact = expectations_exact['expectations']
+#         exact_times.append(expectations_exact['runtime'])
+#         print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
+#
+#         # s_exact=expectations_mc['expectations']
+#
+#         mc_times=[]
+#         lr_times=[]
+#         mc_eps=[]
+#         lr_eps=[]
+#         for ntraj in [500,1000,5000,10000]:
+#             outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#             expectations_mc = np.load(outfile_mc)
+#
+#             s_mc = expectations_mc['expectations']
+#             mc_times.append(expectations_mc['runtime'])
+#             eps_z_mc=0
+#             for n in range(N+1):
+#                 eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
+#             mc_eps.append(np.sqrt(eps_z_mc))
+#             # print(mc_eps)color = cmap((float(xx)-7)/45)
+#         for rank in [1,2,4,8]:
+#             outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#             expectations_lowrank = np.load(outfile_lowrank)
+#             s_lowrank = expectations_lowrank['expectations']
+#             lr_times.append(expectations_lowrank['runtime'])
+#             eps_z_lr = 0
+#             for n in range(N+1):
+#                 eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
+#             lr_eps.append(np.sqrt(eps_z_lr))
+#         # plt.xlabel('Runtime(s)')
+#         plt.grid(True)
+#         plt.ylabel('$\\mathcal{E}$')
+#         # plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+#         # plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+#         plt.loglog(lr_times,lr_eps,color=color,marker="o",label='ERT $\\gamma=10^{%d}g$' % factor)
+#         plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{%d}g$' % factor)
+#         if gamma_var == 1e-3:
+#             plt.plot(lr_times[0], lr_eps[0], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
+#             plt.plot(mc_times[2], mc_eps[2], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
+#         exact_time = np.mean(exact_times)
+#     plt.vlines(exact_time, ymin=10 ** -3, ymax=10 ** 2, linestyles='dashed', colors='black',label='Exact Simulation Time')
 # plt.legend()
-
-# plt.savefig('./Plots/erroslowrankvsmontecarlo' + fig_params, bbox_inches='tight')
+# plt.ylim(5*10 ** -3, 0.2*10 ** 1)
+# # plt.tick_params(axis='x', which='both',labelsize=0, length=0)
+# # plt.legend()
+#
+# # plt.savefig('./Plots/erroslowrankvsmontecarlo' + fig_params, bbox_inches='tight')
+# # plt.show()
+# # exact_times=[]
+# plt.subplot(212)
+# for kappa_var in [1]:
+#     for gamma_var in [1e-3,1e-2,1e-1]:
+#
+#         kappa = ((kappa_var)) * g
+#         beta = kappa
+#         gamma = ((gamma_var)) * g
+#         # shift=2*gamma
+#
+#         factor = int(np.log10(gamma_var))
+#         color = cmap((float(factor-1)**2 +0.4)/20)
+#         outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift)
+#         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#         expectations_exact = np.load(outfile_exact)
+#         s_exact = expectations_exact['expectations']
+#         # exact_times.append(expectations_exact['runtime'])
+#         print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
+#
+#         # s_exact=expectations_mc['expectations']
+#
+#         mc_times=[]
+#         lr_times=[]
+#         mc_eps=[]
+#         lr_eps=[]
+#         for ntraj in [500,1000,5000,10000]:
+#             outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#             expectations_mc = np.load(outfile_mc)
+#
+#             s_mc = expectations_mc['expectations']
+#             mc_times.append(expectations_mc['runtime'])
+#             eps_z_mc=0
+#             for n in range(N+1):
+#                 eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
+#             mc_eps.append(np.sqrt(eps_z_mc))
+#             # print(mc_eps)color = cmap((float(xx)-7)/45)
+#         for rank in [1,2,4,8]:
+#             outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#             expectations_lowrank = np.load(outfile_lowrank)
+#             s_lowrank = expectations_lowrank['expectations']
+#             lr_times.append(expectations_lowrank['runtime'])
+#             eps_z_lr = 0
+#             for n in range(N+1):
+#                 eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
+#             lr_eps.append(np.sqrt(eps_z_lr))
+#         # plt.xlabel('Runtime(s)')
+#         plt.grid(True)
+#         plt.ylabel('$\\mathcal{E}$')
+#         # plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+#         # plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+#         plt.loglog(lr_times,lr_eps,color=color,marker="o",label='ERT $\\gamma=10^{%d}g$' % factor)
+#         plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{%d}g$' % factor)
+# exact_time = np.mean(exact_times)
+#     # if factor == 4:
+#     #     plt.plot(lr_times[0], lr_eps[0], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
+#     #     plt.plot(mc_times[3], mc_eps[3], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
+# plt.xlabel('Runtime (s)')
+# exact_time=np.mean(exact_times)
+# plt.vlines(exact_time,ymin=10**-3,ymax=10**2,linestyles='dashed',colors='black',label='Exact Simulation Time')
+# # plt.ylim(10**-3,10**1)
+# plt.ylim(5*10 ** -3, 0.2*10 ** 1)
+# plt.grid(True)
+# plt.ylabel('$\\mathcal{E}$')
+# # plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+# # plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
+#
+# plt.savefig('./Plots/erroslowrankvsmontecarloforcavity' + fig_params,bbox_inches='tight')
+# plt.savefig('./Plots/cavityerrors.pdf',bbox_inches='tight')
+# plt.tight_layout()
 # plt.show()
-exact_times=[]
-plt.subplot(212)
-for kappa_var in [1]:
-    for gamma_var in [1e-3,1e-2,1e-1]:
+
+params = {
+    'axes.labelsize': 38,
+    # 'legend.fontsize': 28,
+    'legend.fontsize': 23,
+    'xtick.labelsize': 25,
+    'ytick.labelsize': 25,
+    # 'figure.figsize': [2 * 3.375, 2 * 3.375],
+    'text.usetex': True,
+    'figure.figsize': (12, 16),
+    'lines.linewidth': 3,
+    'lines.markersize': 15
+}
+plt.rcParams.update(params)
+
+fig,axes=plt.subplots(nrows=3,ncols=2,sharey=True,sharex=True)
+fig.tight_layout()
+kappa_axes=[(0,1e-1),(1,1)]
+gamma_axes=[(0,1e-3),(1,1e-2), (2,1e-1)]
+
+for a,kappa_var in kappa_axes:
+    for b,gamma_var in gamma_axes:
+        gamma_factor = int(np.log10(gamma_var))
+        kappa_factor=int(np.log10(kappa_var))
+        ax=axes[b,a]
+        if a==0:
+            ax.set_ylabel('$\\mathcal{E}$')
+        if b==2:
+            ax.set_xlabel('Runtime (s)')
+        ax.grid(True)
         kappa = ((kappa_var)) * g
         beta = kappa
         gamma = ((gamma_var)) * g
+        # shift=2*gamma
+        # ax.set_ylim(10**-3,10)
+        # ax.set_yticks([10**-3,10**-2,10**-1,10**0])
+
         factor = int(np.log10(gamma_var))
-        color = cmap((float(factor-1)**2 +0.4)/20)
+        color = cmap((float(factor - 1) ** 2 + 0.4) / 20)
         outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
             N, fock_N, init, g, beta, kappa, gamma, detune, shift)
         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
@@ -264,61 +384,228 @@ for kappa_var in [1]:
             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
         expectations_exact = np.load(outfile_exact)
         s_exact = expectations_exact['expectations']
-        exact_times.append(expectations_exact['runtime'])
+        # exact_times.append(expectations_exact['runtime'])
         print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
 
         # s_exact=expectations_mc['expectations']
 
-        mc_times=[]
-        lr_times=[]
-        mc_eps=[]
-        lr_eps=[]
-        for ntraj in [500,1000,5000,10000]:
+        mc_times = []
+        lr_times = []
+        mc_eps = []
+        lr_eps = []
+        for ntraj in [101, 501, 1001, 5001]:
+            # shift=2*gamma
             outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
             expectations_mc = np.load(outfile_mc)
 
             s_mc = expectations_mc['expectations']
             mc_times.append(expectations_mc['runtime'])
-            eps_z_mc=0
-            for n in range(N+1):
-                eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
+            eps_z_mc = 0
+            for n in range(N + 1):
+                eps_z_mc += np.sum((s_exact[n] - s_mc[n]) ** 2) / np.sum(s_exact[n] ** 2)
+                # eps_z_mc += np.sum((s_exact[n] - s_mc[n]) ** 2 /(s_exact[n] ** 2))
+
             mc_eps.append(np.sqrt(eps_z_mc))
             # print(mc_eps)color = cmap((float(xx)-7)/45)
-        for rank in [1,2,4,8]:
+        for rank in [1, 2, 4, 8,16,32]:
+            # shift=0
             outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
             expectations_lowrank = np.load(outfile_lowrank)
             s_lowrank = expectations_lowrank['expectations']
             lr_times.append(expectations_lowrank['runtime'])
             eps_z_lr = 0
-            for n in range(N+1):
-                eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
-            lr_eps.append(np.sqrt(eps_z_lr))
-        # plt.xlabel('Runtime(s)')
-        plt.grid(True)
-        plt.ylabel('$\\mathcal{E}$')
-        # plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-        # plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-        plt.loglog(lr_times,lr_eps,color=color,marker="o",label='ERT $\\gamma=10^{%d}g$' % factor)
-        plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{%d}g$' % factor)
-exact_time = np.mean(exact_times)
-    # if factor == 4:
-    #     plt.plot(lr_times[0], lr_eps[0], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
-    #     plt.plot(mc_times[3], mc_eps[3], color='red', marker='o', fillstyle='none', markersize='22', markeredgewidth='2')
-plt.xlabel('Runtime (s)')
-exact_time=np.mean(exact_times)
-plt.vlines(exact_time,ymin=10**-3,ymax=10**2,linestyles='dashed',colors='black',label='Exact Simulation Time')
-plt.ylim(10**-3,10**1)
-plt.grid(True)
-plt.ylabel('$\\mathcal{E}$')
-# plt.plot(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-# plt.loglog(mc_times,mc_eps,color=color,linestyle='dashed',marker="^",label='Monte-Carlo  $\\gamma=10^{-%d}$' % factor)
-plt.legend()
+            for n in range(N + 1):
+                eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2) / np.sum(s_exact[n] ** 2)
+                # eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2 /(s_exact[n] ** 2))
 
-plt.savefig('./Plots/erroslowrankvsmontecarloforcavity' + fig_params,bbox_inches='tight')
-plt.savefig('./Plots/cavityerrors',bbox_inches='tight')
-plt.tight_layout()
+            lr_eps.append(np.sqrt(eps_z_lr))
+        # if gamma_var !=1e-3:
+        #     for rank in [16,32]:
+        #         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+        #             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+        #         expectations_lowrank = np.load(outfile_lowrank)
+        #         s_lowrank = expectations_lowrank['expectations']
+        #         lr_times.append(expectations_lowrank['runtime'])
+        #         eps_z_lr = 0
+        #         for n in range(N + 1):
+        #             eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2) / np.sum(s_exact[n] ** 2)
+        #         lr_eps.append(np.sqrt(eps_z_lr))
+        # plt.xlabel('Runtime(s)')
+
+        ax.loglog(lr_times, lr_eps, color='blue', marker="o", label='ERT')
+        ax.loglog(mc_times, mc_eps, color='red', linestyle='dashed', marker="^",
+                   label='Monte-Carlo')
+        if a==1 and b==2:
+            ax.legend(loc='upper right')
+        if b==0:
+            ax.annotate('$\\kappa=10^{%d}g,\\gamma=10^{%d}g$' % (kappa_factor, gamma_factor), xy=(0.05, 0.5), xycoords='axes fraction', fontsize=25)
+        else:
+            ax.annotate('$\\kappa=10^{%d}g,\\gamma=10^{%d}g$' % (kappa_factor, gamma_factor), xy=(0.05, 0.05), xycoords='axes fraction', fontsize=25)
+
+        # ax.legend()
+# fig.ylabel('$\\mathcal{E}$')
+plt.savefig('./Plots/cavityerrorrsubplotsnew.pdf',bbox_inches='tight')
 plt.show()
+
+
+# markers=['o','s','P','^','>','<']
+# k=0
+# for kappa_var in [1e-1,1]:
+#     for gamma_var in [1e-3,1e-2,1e-1]:
+#         gamma_factor = int(np.log10(gamma_var))
+#         kappa_factor=int(np.log10(kappa_var))
+#         kappa=((kappa_var))*g
+#         beta=kappa
+#         gamma=((gamma_var))*g
+#         # shift=2*gamma
+#         factor=np.log10(gamma_var)
+#         color = cmap((float(factor-1)**2 +0.4)/20)
+#         outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift)
+#         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#         expectations_exact = np.load(outfile_exact)
+#         s_exact = expectations_exact['expectations']
+#         exact_times.append(expectations_exact['runtime'])
+#         print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
+#
+#         # s_exact=expectations_mc['expectations']
+#
+#         mc_times=[]
+#         lr_times=[]
+#         mc_eps=[]
+#         lr_eps=[]
+#         eps_ratio=[]
+#         times_ratio=[]
+#         for ntraj in [500,1000,5000,10000]:
+#             outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#                 N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#             expectations_mc = np.load(outfile_mc)
+#
+#             s_mc = expectations_mc['expectations']
+#             mc_times.append(expectations_mc['runtime'])
+#             eps_z_mc=0
+#             for n in range(N+1):
+#                 eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
+#             eps_mc=np.sqrt(eps_z_mc)
+#             # print(mc_eps)color = cmap((float(xx)-7)/45)
+#             for rank in [1,2,4,8]:
+#                 outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#                     N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#                 expectations_lowrank = np.load(outfile_lowrank)
+#                 s_lowrank = expectations_lowrank['expectations']
+#                 lr_times.append(expectations_lowrank['runtime'])
+#                 eps_z_lr = 0
+#                 for n in range(N+1):
+#                     eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
+#                 eps_lr=np.sqrt(eps_z_lr)
+#                 times_ratio.append(expectations_mc['runtime']/expectations_lowrank['runtime'])
+#                 eps_ratio.append(eps_mc/eps_lr)
+#         plt.xscale('log')
+#         plt.yscale('log')
+#         plt.vlines(1,ymin=10**-3,ymax=10**2,linestyles='dashed',colors='black')
+#         plt.hlines(1,xmin=10**-3,xmax=10**2,linestyles='dashed',colors='black')
+#         plt.ylim(5*10 ** -3, 10 ** 2)
+#         plt.xlim(5*10 ** -2, 0.5*10 ** 2)
+#
+#         plt.scatter(times_ratio,eps_ratio,marker=markers[k],label='$\\kappa=10^{%d}g$,  $\\gamma=10^{%d}g$' % (kappa_factor, gamma_factor))
+#         k += 1
+# plt.legend()
+# plt.tight_layout()
+# plt.ylabel('$\\frac{\\mathcal{E}^{\\rm MC}}{\\mathcal{E}^{\\rm ERT}}$')
+# plt.xlabel('$\\frac{T^{\\rm MC}}{T^{\\rm ERT}}$')
+# plt.text(5,2, 'Faster, More Accurate', fontsize=30)
+# plt.text(5,0.2, 'Faster, Less Accurate', fontsize=30)
+# plt.text(0.07,0.1, 'Slower, Less Accurate', fontsize=30)
+# plt.text(0.07,5, 'Slower, More Accurate', fontsize=30)
+#
+#
+# plt.savefig('./Plots/cavityerrorratio.pdf',bbox_inches='tight')
+# plt.show()
+#
+
+
+# markers=['o','s','P','^','>','<']
+# k=0
+# combination=[(1,10000,1e-3),(8,10000,1e-2),(8,1000,1e-1)]
+# for kappa_var in [1e-1,1]:
+#     mc_times = []
+#     lr_times = []
+#     mc_eps = []
+#     lr_eps = []
+#     eps_ratio = []
+#     times_ratio = []
+#     for rank,ntraj,gamma_var in combination:
+#         gamma_factor = int(np.log10(gamma_var))
+#         kappa_factor=int(np.log10(kappa_var))
+#         kappa=((kappa_var))*g
+#         beta=kappa
+#         gamma=((gamma_var))*g
+#         # shift=2*gamma
+#         factor=np.log10(gamma_var)
+#         color = cmap((float(factor-1)**2 +0.4)/20)
+#         outfile_exact = './Data/exact:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift)
+#         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#         expectations_exact = np.load(outfile_exact)
+#         s_exact = expectations_exact['expectations']
+#         exact_times.append(expectations_exact['runtime'])
+#         print('exact runtime is {:.2f} seconds'.format(expectations_exact['runtime']))
+#
+#         # s_exact=expectations_mc['expectations']
+#
+#
+#
+#         outfile_mc = './Data/montecarlo:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}traj.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, ntraj)
+#         expectations_mc = np.load(outfile_mc)
+#
+#         s_mc = expectations_mc['expectations']
+#         mc_times.append(expectations_mc['runtime'])
+#         eps_z_mc=0
+#         for n in range(N+1):
+#             eps_z_mc+= np.sum((s_exact[n]-s_mc[n])**2)/np.sum(s_exact[n]**2)
+#         eps_mc=np.sqrt(eps_z_mc)
+#             # print(mc_eps)color = cmap((float(xx)-7)/45)
+#
+#         outfile_lowrank = './Data/lowrank:{}sites-{}cavityN-init{}-{}g-{}beta-{}kappa-{}gamma-{}detune-{}shift-{}rank.npz'.format(
+#             N, fock_N, init, g, beta, kappa, gamma, detune, shift, rank)
+#         expectations_lowrank = np.load(outfile_lowrank)
+#         s_lowrank = expectations_lowrank['expectations']
+#         lr_times.append(expectations_lowrank['runtime'])
+#         eps_z_lr = 0
+#         for n in range(N+1):
+#             eps_z_lr += np.sum((s_exact[n] - s_lowrank[:, n]) ** 2)/np.sum(s_exact[n]**2)
+#         eps_lr=np.sqrt(eps_z_lr)
+#         times_ratio.append(expectations_mc['runtime']/expectations_lowrank['runtime'])
+#         eps_ratio.append(eps_mc/eps_lr)
+#         plt.xscale('log')
+#         plt.yscale('log')
+#         plt.vlines(1,ymin=10**-3,ymax=10**2,linestyles='dashed',colors='black')
+#         plt.hlines(1,xmin=10**-3,xmax=10**2,linestyles='dashed',colors='black')
+#         plt.ylim(5*10 ** -3, 10 ** 2)
+#         plt.xlim(5*10 ** -2, 0.5*10 ** 2)
+#
+#     plt.plot(times_ratio,eps_ratio,marker=markers[k],label='$\\kappa=10^{%d}g$' % (kappa_factor))
+#     k += 1
+# plt.legend()
+# plt.tight_layout()
+# plt.ylabel('$\\frac{\\mathcal{E}^{\\rm MC}}{\\mathcal{E}^{\\rm ERT}}$')
+# plt.xlabel('$\\frac{T^{\\rm MC}}{T^{\\rm ERT}}$')
+# plt.text(5,2, 'Faster, More Accurate', fontsize=30)
+# plt.text(5,0.2, 'Faster, Less Accurate', fontsize=30)
+# plt.text(0.07,0.1, 'Slower, Less Accurate', fontsize=30)
+# plt.text(0.07,5, 'Slower, More Accurate', fontsize=30)
+#
+#
+# plt.savefig('./Plots/cavityerrorratiominimal.pdf',bbox_inches='tight')
+# plt.show()
 
 
